@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "v1",
+  "nameForModel": "TicketPlugin",
+  "nameForHuman": "Ticket Plugin",
+  "descriptionForModel": "This is a plugin to get a list of tickets given a specific search query.",
+  "descriptionForHuman": "This is a plugin to get a list of tickets given a specific search query",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "{url}/api/swagger.json"
+  },
+  "logoUrl": "{url}/logo.png",
+  "contactEmail": "info@developerscantina.com",
+  "legalInfoUrl": "http://www.developerscantina.com"
+}
