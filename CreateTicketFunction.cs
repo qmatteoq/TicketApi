@@ -1,6 +1,4 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
 using Microsoft.Extensions.Logging;
@@ -20,17 +18,19 @@ namespace TicketApi
         [Function("CreateTicket")]
         [TableOutput("TicketTable", "ticket", Connection = "AzureWebJobsStorage")]
         [OpenApiOperation(operationId: "CreateTicket", Description = "Create a new ticket")]
-        [OpenApiRequestBody(contentType: "application/json", bodyType: typeof(PostTicket), Required = true, Description = "The ticket to create")]
+        [OpenApiRequestBody(contentType: "application/json", bodyType: typeof(Ticket), Required = true, Description = "The ticket to create")]
         [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(MyTicketTable), Description = "OK")]
         public async Task<MyTicketTable> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "tickets")] HttpRequest req)
         {
             _logger.LogInformation("C# HTTP trigger function processed a request.");
-            var ticket = await req.ReadFromJsonAsync<PostTicket>();
+            var ticket = await req.ReadFromJsonAsync<Ticket>();
+
+            var id = string.IsNullOrEmpty(ticket.Id) ? Guid.NewGuid().ToString() : ticket.Id;
 
             MyTicketTable ticketTable = new MyTicketTable
             {
                 PartitionKey = "ticket",
-                RowKey = Guid.NewGuid().ToString(),
+                RowKey = id,
                 Title = ticket.Title,
                 Description = ticket.Description,
                 AssignedTo = ticket.AssignedTo,

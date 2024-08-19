@@ -1,0 +1,32 @@
+# For more info on HTTP files go to https://aka.ms/vs/httpfile
+
+@hostname=http://localhost:7069
+
+@ticketTitle=Test ticket 1
+@ticketDescription=This is test ticket 1
+@ticketAssignedTo=Matteo Pagani
+@ticketSeverity=High
+
+@ticketId = fc239949-179f-4c6d-a27e-1c3ca4d81149
+
+###
+GET {{hostname}}/api/tickets
+
+###
+
+POST {{hostname}}/api/tickets
+Content-Type: application/json
+
+{
+  "id": "{{ticketId}}",
+  "title": "{{ticketTitle}}",
+  "description": "{{ticketDescription}}",
+  "assignedTo": "{{ticketAssignedTo}}",
+  "severity": "{{ticketSeverity}}"
+}
+
+###
+
+DELETE {{hostname}}/api/tickets/{{ticketId}}
+
+
