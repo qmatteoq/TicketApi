@@ -28,7 +28,7 @@ namespace TicketApi
 
         [Function("DeleteTicketFunction")]
         [OpenApiOperation(operationId: "DeleteTicket", Description = "Delete the ticket given an id")]
-        [OpenApiParameter(name: "id", In = ParameterLocation.Path, Required = false, Type = typeof(string), Description = "The ticket id")]
+        [OpenApiParameter(name: "id", In = ParameterLocation.Path, Required = true, Type = typeof(string), Description = "The ticket id")]
         [OpenApiResponseWithoutBody(statusCode: HttpStatusCode.OK, Description = "Ticket deleted")]
         public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "delete", Route = "tickets/{id}")] HttpRequest req, string id)
         {
