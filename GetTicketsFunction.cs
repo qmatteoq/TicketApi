@@ -18,11 +18,11 @@ namespace TicketApi
         }
 
         [Function("GetTickets")]
-        [OpenApiOperation(operationId: "GetTickets", Description = "Get the tickets with a given keyword in the title")]
+        [OpenApiOperation(operationId: "GetTickets", Description = "Get the tickets with a given keyword in the title or assigned to a specific person")]
         [OpenApiParameter(name: "search", In = ParameterLocation.Query, Required = false, Type = typeof(string), Description = "The search keyword")]
         [OpenApiParameter(name: "assignedTo", In = ParameterLocation.Query, Required = false, Type = typeof(string), Description = "The person assigned to the ticket")]
         [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(List<Ticket>), Description = "OK")]
-        public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "tickets")] HttpRequestData req,
+        public IActionResult Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "tickets")] HttpRequestData req,
             [TableInput("TicketTable", "ticket")] List<MyTicketTable> tickets, [FromQuery] string search, [FromQuery]string assignedTo)
         {
             _logger.LogInformation("C# HTTP trigger function processed a request.");
@@ -44,7 +44,7 @@ namespace TicketApi
             }
             else
             {
-                result = tickets.Where(t => t.Title.ToLowerInvariant().Contains(search.ToLowerInvariant())).Select(x => new Ticket
+                result = tickets.Where(t => t.Title.ToLowerInvariant().Contains(search.ToLowerInvariant()) || (!string.IsNullOrEmpty(t.AssignedTo) && t.AssignedTo.ToLowerInvariant().Contains(search.ToLowerInvariant()))).Select(x => new Ticket
                 {
                     Id = x.RowKey,
                     Title = x.Title,
