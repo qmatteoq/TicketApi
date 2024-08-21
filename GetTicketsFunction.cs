@@ -20,9 +20,10 @@ namespace TicketApi
         [Function("GetTickets")]
         [OpenApiOperation(operationId: "GetTickets", Description = "Get the tickets with a given keyword in the title")]
         [OpenApiParameter(name: "search", In = ParameterLocation.Query, Required = false, Type = typeof(string), Description = "The search keyword")]
+        [OpenApiParameter(name: "assignedTo", In = ParameterLocation.Query, Required = false, Type = typeof(string), Description = "The person assigned to the ticket")]
         [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(List<Ticket>), Description = "OK")]
         public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "tickets")] HttpRequestData req,
-            [TableInput("TicketTable", "ticket")] List<MyTicketTable> tickets, [FromQuery] string search)
+            [TableInput("TicketTable", "ticket")] List<MyTicketTable> tickets, [FromQuery] string search, [FromQuery]string assignedTo)
         {
             _logger.LogInformation("C# HTTP trigger function processed a request.");
 
@@ -36,7 +37,9 @@ namespace TicketApi
                     Title = x.Title,
                     Description = x.Description,
                     AssignedTo = x.AssignedTo,
-                    Severity = x.Severity
+                    Severity = x.Severity,
+                    CreatedAt = x.Timestamp
+                    
                 }).ToList();
             }
             else
@@ -47,8 +50,14 @@ namespace TicketApi
                     Title = x.Title,
                     Description = x.Description,
                     AssignedTo = x.AssignedTo,
-                    Severity = x.Severity
+                    Severity = x.Severity,
+                    CreatedAt = x.Timestamp
                 }).ToList();
+            }
+
+            if (!string.IsNullOrEmpty(assignedTo))
+            {
+                result = result.Where(t => !string.IsNullOrEmpty(t.AssignedTo) && t.AssignedTo.ToLowerInvariant().Contains(assignedTo.ToLowerInvariant())).ToList();
             }
 
             return new OkObjectResult(result);

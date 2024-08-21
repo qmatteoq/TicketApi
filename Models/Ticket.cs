@@ -16,4 +16,7 @@ public class Ticket
 
     [JsonPropertyName("severity")]
     public required string Severity { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public required DateTimeOffset? CreatedAt { get; set; }
 }
