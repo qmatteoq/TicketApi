@@ -21,9 +21,10 @@ namespace TicketApi
         [OpenApiOperation(operationId: "GetTickets", Description = "Get the tickets with a given keyword in the title or assigned to a specific person")]
         [OpenApiParameter(name: "search", In = ParameterLocation.Query, Required = false, Type = typeof(string), Description = "The search keyword")]
         [OpenApiParameter(name: "assignedTo", In = ParameterLocation.Query, Required = false, Type = typeof(string), Description = "The person assigned to the ticket")]
+        [OpenApiParameter(name: "status", In = ParameterLocation.Query, Required = false, Type = typeof(string), Description = "The status of the ticket")]
         [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(List<Ticket>), Description = "OK")]
         public IActionResult Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "tickets")] HttpRequestData req,
-            [TableInput("TicketTable", "ticket")] List<MyTicketTable> tickets, [FromQuery] string search, [FromQuery]string assignedTo)
+            [TableInput("TicketTable", "ticket")] List<MyTicketTable> tickets, [FromQuery] string search, [FromQuery]string assignedTo, [FromQuery]string status)
         {
             _logger.LogInformation("C# HTTP trigger function processed a request.");
 
@@ -38,8 +39,8 @@ namespace TicketApi
                     Description = x.Description,
                     AssignedTo = x.AssignedTo,
                     Severity = x.Severity,
-                    CreatedAt = x.Timestamp
-                    
+                    CreatedAt = x.Timestamp,
+                    Status = x.Status
                 }).ToList();
             }
             else
@@ -51,13 +52,19 @@ namespace TicketApi
                     Description = x.Description,
                     AssignedTo = x.AssignedTo,
                     Severity = x.Severity,
-                    CreatedAt = x.Timestamp
+                    CreatedAt = x.Timestamp,
+                    Status = x.Status
                 }).ToList();
             }
 
             if (!string.IsNullOrEmpty(assignedTo))
             {
                 result = result.Where(t => !string.IsNullOrEmpty(t.AssignedTo) && t.AssignedTo.ToLowerInvariant().Contains(assignedTo.ToLowerInvariant())).ToList();
+            }
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                result = result.Where(t => !string.IsNullOrEmpty(t.Status) && t.Status.ToLowerInvariant().Contains(status.ToLowerInvariant())).ToList();
             }
 
             return new OkObjectResult(result);

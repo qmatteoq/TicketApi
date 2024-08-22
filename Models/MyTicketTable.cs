@@ -11,4 +11,5 @@ public class MyTicketTable : ITableEntity
     public string Description { get; set; }
     public string AssignedTo { get; set; }
     public string Severity { get; set; }
+    public string Status  { get; set; }
 }

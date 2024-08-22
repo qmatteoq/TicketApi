@@ -45,6 +45,7 @@ namespace TicketApi
                 Description = ticket.Description,
                 AssignedTo = ticket.AssignedTo,
                 Severity = ticket.Severity,
+                Status = ticket.Status,
                 Timestamp = DateTimeOffset.UtcNow
             };
 

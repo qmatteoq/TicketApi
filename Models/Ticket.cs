@@ -19,4 +19,7 @@ public class Ticket
 
     [JsonPropertyName("createdAt")]
     public required DateTimeOffset? CreatedAt { get; set; }
+
+    [JsonPropertyName("status")]
+    public required string Status { get; set; }
 }
