@@ -1,5 +1,8 @@
 using Azure;
+using Azure.Core;
+using Azure.Core.Pipeline;
 using Azure.Data.Tables;
+using Azure.Identity;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -20,9 +23,19 @@ namespace TicketApi
         {
             _logger = logger;
 
-            var connectionString = configuration["AzureWebJobsStorage"];
             // Initialize the TableClient instance
-            var serviceClient = new TableServiceClient(connectionString);
+            var tableEndpoint = configuration["TableEndpoint"];
+            var credential = new DefaultAzureCredential();
+            var serviceClient = new TableServiceClient(new Uri(tableEndpoint), credential,
+                new TableClientOptions
+                {
+                    Retry = { Mode = RetryMode.Exponential, MaxRetries = 10, Delay = TimeSpan.FromSeconds(3) },
+                    Transport = new HttpClientTransport(new HttpClient
+                    {
+                        Timeout = TimeSpan.FromSeconds(60)
+                    })
+                });
+                
             _tableClient = serviceClient.GetTableClient("TicketTable");
         }
 

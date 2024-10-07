@@ -8,6 +8,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
 using Microsoft.OpenApi.Models;
 using System.Net;
+using Azure.Core.Pipeline;
+using Azure.Core;
+using Microsoft.Identity.Client.Platforms.Features.DesktopOs.Kerberos;
+using Azure.Identity;
 
 namespace TicketApi
 {
@@ -19,10 +23,19 @@ namespace TicketApi
         public DeleteTicketFunction(ILogger<DeleteTicketFunction> logger, IConfiguration configuration)
         {
             _logger = logger;
+            
+            var tableEndpoint = configuration["TableEndpoint"];
+            var credential = new DefaultAzureCredential();
+            var serviceClient = new TableServiceClient(new Uri(tableEndpoint), credential,
+                 new TableClientOptions
+                 {
+                     Retry = { Mode = RetryMode.Exponential, MaxRetries = 10, Delay = TimeSpan.FromSeconds(3) },
+                     Transport = new HttpClientTransport(new HttpClient
+                     {
+                         Timeout = TimeSpan.FromSeconds(60)
+                     })
+                 });
 
-            var connectionString = configuration["AzureWebJobsStorage"];
-            // Initialize the TableClient instance
-            var serviceClient = new TableServiceClient(connectionString);
             _tableClient = serviceClient.GetTableClient("TicketTable");
         }
 
