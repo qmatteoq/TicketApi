@@ -264,3 +264,4 @@ __pycache__/
 *.pyc
 Properties/PublishProfiles/TicketApi-net8 - Zip Deploy.pubxml
 Properties/serviceDependencies.TicketApi-net8 - Zip Deploy.json
+/__azurite_db_table__.json
