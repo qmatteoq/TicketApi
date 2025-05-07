@@ -64,6 +64,9 @@ namespace TicketApi
 
             try
             {
+                // Ensure the table exists
+                await _tableClient.CreateIfNotExistsAsync();
+
                 await _tableClient.UpsertEntityAsync(ticketTable);
                 return new OkObjectResult(ticketTable);
             }

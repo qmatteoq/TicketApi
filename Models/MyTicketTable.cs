@@ -12,4 +12,4 @@ public class MyTicketTable : ITableEntity
     public string AssignedTo { get; set; }
     public string Severity { get; set; }
     public string Status  { get; set; }
-}
+}   
