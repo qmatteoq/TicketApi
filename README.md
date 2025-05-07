@@ -43,13 +43,20 @@ The OpenAPI specification is also available at `http://localhost:7071//api/swagg
     # Set default location
     $location = "westeurope"
    ```
-5) Run the `deploy.ps1` script to deploy the Azure Function and the required resources:
+5) If you're on Windows, run the following command in a PowerShell terminal:
 
    ```powershell
    .\deploy.ps1
    ```
 
-   At first, you will be asked to provide a name for the resource group which will host the resources. If it doesn't exist, it will be created. If it already exists, the script will use the existing resource group.
+   If you're on Linux or Mac, run the following command in a bash terminal:
+
+   ```bash
+   chmod +x deploy.sh
+   ./deploy.sh
+   ```
+
+   You will be asked to provide a name for the resource group which will host the resources. If it doesn't exist, it will be created for you.
 
     The script will deploy the following resources:
         
