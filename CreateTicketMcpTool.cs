@@ -3,23 +3,19 @@ using Azure.Core;
 using Azure.Core.Pipeline;
 using Azure.Data.Tables;
 using Azure.Identity;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
-using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
+using Microsoft.Azure.Functions.Worker.Extensions.Mcp;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.Net;
 
 namespace TicketApi
 {
-    public class CreateTicketFunction
+    public class CreateTicketMcpTool
     {
-        private readonly ILogger<CreateTicketFunction> _logger;
+        private readonly ILogger<CreateTicketMcpTool> _logger;
         private readonly TableClient _tableClient;
 
-        public CreateTicketFunction(ILogger<CreateTicketFunction> logger, IConfiguration configuration)
+        public CreateTicketMcpTool(ILogger<CreateTicketMcpTool> logger, IConfiguration configuration)
         {
             _logger = logger;
 
@@ -44,7 +40,7 @@ namespace TicketApi
             {
                 var tableEndpoint = configuration["TableEndpoint"];
                 var credential = new DefaultAzureCredential();
-                serviceClient = new TableServiceClient(new Uri(tableEndpoint), credential,
+                serviceClient = new TableServiceClient(new Uri(tableEndpoint ?? throw new InvalidOperationException("TableEndpoint configuration is missing")), credential,
                     new TableClientOptions
                     {
                         Retry = { Mode = RetryMode.Exponential, MaxRetries = 10, Delay = TimeSpan.FromSeconds(3) },
@@ -58,26 +54,30 @@ namespace TicketApi
             _tableClient = serviceClient.GetTableClient("TicketTable");
         }
 
-        [Function("CreateTicket")]
-        [OpenApiOperation(operationId: "CreateTicket", Description = "Create a new ticket")]
-        [OpenApiRequestBody(contentType: "application/json", bodyType: typeof(Ticket), Required = true, Description = "The ticket to create")]
-        [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(MyTicketTable), Description = "OK")]
-        public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "tickets")] HttpRequest req)
+        [Function("CreateTicketTool")]
+        public async Task<MyTicketTable> Run(
+            [McpToolTrigger("create_ticket", "Create a new support ticket")] ToolInvocationContext context,
+            [McpToolProperty("title", "The ticket title", isRequired: true)] string title,
+            [McpToolProperty("description", "The ticket description", isRequired: true)] string description,
+            [McpToolProperty("assignedTo", "Person assigned to the ticket", isRequired: true)] string assignedTo,
+            [McpToolProperty("severity", "Severity level (e.g., Low, Medium, High, Critical)", isRequired: true)] string severity,
+            [McpToolProperty("status", "Current status (e.g., Open, In Progress, Closed)", isRequired: true)] string status,
+            [McpToolProperty("id", "Optional ticket ID (auto-generated if not provided)", isRequired: false)] string? id = null
+        )
         {
-            _logger.LogInformation("C# HTTP trigger function processed a request.");
-            var ticket = await req.ReadFromJsonAsync<Ticket>();
-
-            var id = string.IsNullOrEmpty(ticket.Id) ? Guid.NewGuid().ToString() : ticket.Id;
+            _logger.LogInformation("MCP Tool: Creating ticket with title: {Title}", title);
+            
+            var ticketId = string.IsNullOrEmpty(id) ? Guid.NewGuid().ToString() : id;
             
             MyTicketTable ticketTable = new MyTicketTable
             {
                 PartitionKey = "ticket",
-                RowKey = id,
-                Title = ticket.Title,
-                Description = ticket.Description,
-                AssignedTo = ticket.AssignedTo,
-                Severity = ticket.Severity,
-                Status = ticket.Status,
+                RowKey = ticketId,
+                Title = title,
+                Description = description,
+                AssignedTo = assignedTo,
+                Severity = severity,
+                Status = status,
                 Timestamp = DateTimeOffset.UtcNow
             };
 
@@ -87,11 +87,13 @@ namespace TicketApi
                 await _tableClient.CreateIfNotExistsAsync();
 
                 await _tableClient.UpsertEntityAsync(ticketTable);
-                return new OkObjectResult(ticketTable);
+                _logger.LogInformation("MCP Tool: Successfully created ticket with ID: {TicketId}", ticketId);
+                return ticketTable;
             }
             catch (RequestFailedException ex)
             {
-                return new BadRequestObjectResult(ex.Message);
+                _logger.LogError(ex, "MCP Tool: Failed to create ticket");
+                throw;
             }
         }
     }

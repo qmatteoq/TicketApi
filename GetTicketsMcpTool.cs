@@ -1,24 +1,20 @@
-using System.Net;
-using Azure.Core.Pipeline;
 using Azure.Core;
+using Azure.Core.Pipeline;
 using Azure.Data.Tables;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
-using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
-using Microsoft.Extensions.Logging;
-using Microsoft.OpenApi.Models;
-using Microsoft.Extensions.Configuration;
 using Azure.Identity;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Extensions.Mcp;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace TicketApi
 {
-    public class GetTicketsFunction
+    public class GetTicketsMcpTool
     {
-        private readonly ILogger<GetTicketsFunction> _logger;
+        private readonly ILogger<GetTicketsMcpTool> _logger;
         private readonly TableClient _tableClient;
 
-        public GetTicketsFunction(ILogger<GetTicketsFunction> logger, IConfiguration configuration)
+        public GetTicketsMcpTool(ILogger<GetTicketsMcpTool> logger, IConfiguration configuration)
         {
             _logger = logger;
 
@@ -42,7 +38,7 @@ namespace TicketApi
             {
                 var tableEndpoint = configuration["TableEndpoint"];
                 var credential = new DefaultAzureCredential();
-                serviceClient = new TableServiceClient(new Uri(tableEndpoint), credential,
+                serviceClient = new TableServiceClient(new Uri(tableEndpoint ?? throw new InvalidOperationException("TableEndpoint configuration is missing")), credential,
                     new TableClientOptions
                     {
                         Retry = { Mode = RetryMode.Exponential, MaxRetries = 10, Delay = TimeSpan.FromSeconds(3) },
@@ -56,16 +52,16 @@ namespace TicketApi
             _tableClient = serviceClient.GetTableClient("TicketTable");
         }
 
-        [Function("GetTickets")]
-        [OpenApiOperation(operationId: "GetTickets", Description = "Get the tickets with a given keyword in the title or assigned to a specific person")]
-        [OpenApiParameter(name: "search", In = ParameterLocation.Query, Required = false, Type = typeof(string), Description = "The search keyword")]
-        [OpenApiParameter(name: "assignedTo", In = ParameterLocation.Query, Required = false, Type = typeof(string), Description = "The person assigned to the ticket")]
-        [OpenApiParameter(name: "status", In = ParameterLocation.Query, Required = false, Type = typeof(string), Description = "The status of the ticket")]
-        [OpenApiResponseWithBody(statusCode: HttpStatusCode.OK, contentType: "application/json", bodyType: typeof(List<Ticket>), Description = "OK")]
-        public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "tickets")] HttpRequestData req,
-            [FromQuery] string search, [FromQuery] string assignedTo, [FromQuery] string status)
+        [Function("GetTicketsTool")]
+        public async Task<List<Ticket>> Run(
+            [McpToolTrigger("get_tickets", "Get tickets with optional filtering by search keyword, assignee, or status")] ToolInvocationContext context,
+            [McpToolProperty("search", "Search keyword to find in title or assignedTo field", isRequired: false)] string? search = null,
+            [McpToolProperty("assignedTo", "Filter by person assigned to the ticket", isRequired: false)] string? assignedTo = null,
+            [McpToolProperty("status", "Filter by ticket status", isRequired: false)] string? status = null
+        )
         {
-            _logger.LogInformation("C# HTTP trigger function processed a request.");
+            _logger.LogInformation("MCP Tool: Getting tickets with search: {Search}, assignedTo: {AssignedTo}, status: {Status}", 
+                search ?? "none", assignedTo ?? "none", status ?? "none");
 
             string partitionKey = "ticket";
 
@@ -95,29 +91,34 @@ namespace TicketApi
             }
             else
             {
-                result = tickets.Where(t => t.Title.ToLowerInvariant().Contains(search.ToLowerInvariant()) || (!string.IsNullOrEmpty(t.AssignedTo) && t.AssignedTo.ToLowerInvariant().Contains(search.ToLowerInvariant()))).Select(x => new Ticket
-                {
-                    Id = x.RowKey,
-                    Title = x.Title,
-                    Description = x.Description,
-                    AssignedTo = x.AssignedTo,
-                    Severity = x.Severity,
-                    CreatedAt = x.Timestamp,
-                    Status = x.Status
-                }).ToList();
+                result = tickets.Where(t => t.Title.ToLowerInvariant().Contains(search.ToLowerInvariant()) || 
+                    (!string.IsNullOrEmpty(t.AssignedTo) && t.AssignedTo.ToLowerInvariant().Contains(search.ToLowerInvariant())))
+                    .Select(x => new Ticket
+                    {
+                        Id = x.RowKey,
+                        Title = x.Title,
+                        Description = x.Description,
+                        AssignedTo = x.AssignedTo,
+                        Severity = x.Severity,
+                        CreatedAt = x.Timestamp,
+                        Status = x.Status
+                    }).ToList();
             }
 
             if (!string.IsNullOrEmpty(assignedTo))
             {
-                result = result.Where(t => !string.IsNullOrEmpty(t.AssignedTo) && t.AssignedTo.ToLowerInvariant().Contains(assignedTo.ToLowerInvariant())).ToList();
+                result = result.Where(t => !string.IsNullOrEmpty(t.AssignedTo) && 
+                    t.AssignedTo.ToLowerInvariant().Contains(assignedTo.ToLowerInvariant())).ToList();
             }
 
             if (!string.IsNullOrEmpty(status))
             {
-                result = result.Where(t => !string.IsNullOrEmpty(t.Status) && t.Status.ToLowerInvariant().Contains(status.ToLowerInvariant())).ToList();
+                result = result.Where(t => !string.IsNullOrEmpty(t.Status) && 
+                    t.Status.ToLowerInvariant().Contains(status.ToLowerInvariant())).ToList();
             }
 
-            return new OkObjectResult(result);
+            _logger.LogInformation("MCP Tool: Returning {Count} tickets", result.Count);
+            return result;
         }
     }
 }

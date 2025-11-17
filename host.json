@@ -1,5 +1,9 @@
 {
     "version": "2.0",
+    "extensionBundle": {
+        "id": "Microsoft.Azure.Functions.ExtensionBundle",
+        "version": "[4.29.0, 5.0.0)"
+    },
     "logging": {
         "applicationInsights": {
             "samplingSettings": {
@@ -7,6 +11,13 @@
                 "excludedTypes": "Request"
             },
             "enableLiveMetricsFilters": true
+        }
+    },
+    "extensions": {
+        "mcp": {
+            "serverName": "TicketApi MCP Server",
+            "serverVersion": "1.0.0",
+            "instructions": "This MCP server provides tools for managing support tickets. You can create, delete, and retrieve tickets with various filtering options."
         }
     }
 }
