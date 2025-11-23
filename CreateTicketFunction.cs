@@ -1,61 +1,22 @@
-using Azure;
-using Azure.Core;
-using Azure.Core.Pipeline;
-using Azure.Data.Tables;
-using Azure.Identity;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Azure.WebJobs.Extensions.OpenApi.Core.Attributes;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Net;
+using TicketApi.Services;
 
 namespace TicketApi
 {
     public class CreateTicketFunction
     {
         private readonly ILogger<CreateTicketFunction> _logger;
-        private readonly TableClient _tableClient;
+        private readonly TicketService _ticketService;
 
-        public CreateTicketFunction(ILogger<CreateTicketFunction> logger, IConfiguration configuration)
+        public CreateTicketFunction(ILogger<CreateTicketFunction> logger, TicketService ticketService)
         {
             _logger = logger;
-
-            // Initialize the TableClient instance
-            var connectionString = configuration["StorageConnectionString"];
-            TableServiceClient serviceClient;
-            
-            // Use connection string for local development, DefaultAzureCredential for cloud
-            if (!string.IsNullOrEmpty(connectionString))
-            {
-                serviceClient = new TableServiceClient(connectionString,
-                    new TableClientOptions
-                    {
-                        Retry = { Mode = RetryMode.Exponential, MaxRetries = 10, Delay = TimeSpan.FromSeconds(3) },
-                        Transport = new HttpClientTransport(new HttpClient
-                        {
-                            Timeout = TimeSpan.FromSeconds(60)
-                        })
-                    });
-            }
-            else
-            {
-                var tableEndpoint = configuration["TableEndpoint"];
-                var credential = new DefaultAzureCredential();
-                serviceClient = new TableServiceClient(new Uri(tableEndpoint), credential,
-                    new TableClientOptions
-                    {
-                        Retry = { Mode = RetryMode.Exponential, MaxRetries = 10, Delay = TimeSpan.FromSeconds(3) },
-                        Transport = new HttpClientTransport(new HttpClient
-                        {
-                            Timeout = TimeSpan.FromSeconds(60)
-                        })
-                    });
-            }
-                
-            _tableClient = serviceClient.GetTableClient("TicketTable");
+            _ticketService = ticketService;
         }
 
         [Function("CreateTicket")]
@@ -67,29 +28,25 @@ namespace TicketApi
             _logger.LogInformation("C# HTTP trigger function processed a request.");
             var ticket = await req.ReadFromJsonAsync<Ticket>();
 
-            var id = string.IsNullOrEmpty(ticket.Id) ? Guid.NewGuid().ToString() : ticket.Id;
-            
-            MyTicketTable ticketTable = new MyTicketTable
+            if (ticket == null)
             {
-                PartitionKey = "ticket",
-                RowKey = id,
-                Title = ticket.Title,
-                Description = ticket.Description,
-                AssignedTo = ticket.AssignedTo,
-                Severity = ticket.Severity,
-                Status = ticket.Status,
-                Timestamp = DateTimeOffset.UtcNow
-            };
+                return new BadRequestObjectResult("Invalid ticket data.");
+            }
 
             try
             {
-                // Ensure the table exists
-                await _tableClient.CreateIfNotExistsAsync();
-
-                await _tableClient.UpsertEntityAsync(ticketTable);
-                return new OkObjectResult(ticketTable);
+                var result = await _ticketService.CreateTicketAsync(
+                    ticket.Title,
+                    ticket.Description,
+                    ticket.AssignedTo,
+                    ticket.Severity,
+                    ticket.Status,
+                    ticket.Id
+                );
+                
+                return new OkObjectResult(result);
             }
-            catch (RequestFailedException ex)
+            catch (Exception ex)
             {
                 return new BadRequestObjectResult(ex.Message);
             }
